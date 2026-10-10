@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let save = null, original = null, jsonDirty = false;
-const sectionNames = ['resources', 'items', 'gear', 'hive', 'json'];
+let save = null, original = null, jsonDirty = false, undoSave = null;
+const sectionNames = ['presets', 'resources', 'items', 'gear', 'hive', 'json'];
 const clone = value => JSON.parse(JSON.stringify(value));
 const pretty = value => JSON.stringify(value, null, 2);
 function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
@@ -76,12 +76,13 @@ function field(parent, title, value, callback, options = {}) {
 }
 function updateSummary() {
   const active = save.hive.flat().filter(bee => bee && bee.type != null).length;
-  const values = [['Honey', save.honey ?? 0], ['Pollen', save.pollen ?? 0], ['Bees', active]];
+  const values = [['Honey', save.honey ?? 0], ['Pollen', save.pollen ?? 0], ['Bees', `${active} / ${save.hive.flat().length}`]];
   $('summary').replaceChildren();
   for (const [title, value] of values) {
     const box = document.createElement('div'); box.className = 'metric';
     const caption = document.createElement('small'); caption.textContent = title;
-    const number = document.createElement('strong'); number.textContent = Number(value).toLocaleString('en-US');
+    const number = document.createElement('strong'); number.textContent = typeof value === 'number' ? value.toLocaleString('en-US', value >= 1e12 ? { notation: 'compact', maximumFractionDigits: 2 } : {}) : value;
+    number.title = typeof value === 'number' ? value.toLocaleString('en-US') : value;
     box.append(caption, number); $('summary').append(box);
   }
 }
@@ -89,6 +90,8 @@ function render() {
   $('editor').hidden = false; $('version').textContent = 'Save v' + save.version;
   $('json-editor').value = pretty(save); jsonDirty = false;
   $('json-state').textContent = 'No pending changes';
+  $('hive-size').value = save.hive.flat().length;
+  $('undo-preset').disabled = !undoSave;
   for (const id of ['resources', 'items', 'gear', 'hive']) $(id).replaceChildren();
   for (const key of ['honey', 'pollen']) {
     if (typeof save[key] === 'number') field($('resources'), humanize(key), save[key], value => { save[key] = value; });
@@ -128,7 +131,7 @@ function importText(text) {
   const trimmed = text.trim();
   const candidate = trimmed.startsWith('{') ? SaveCodec.validate(JSON.parse(trimmed)) : SaveCodec.decode(trimmed);
   SaveCodec.encode(candidate);
-  save = candidate; original = clone(save); render();
+  save = candidate; original = clone(save); undoSave = null; render();
   $('import-box').open = false;
   showSection('resources');
   message('Save loaded. Make your changes, then generate a new code.');
@@ -177,7 +180,7 @@ $('example').addEventListener('click', async () => {
   try { const response = await fetch('example.json'); if (!response.ok) throw new Error('Could not load the example save.'); const text = await response.text(); importText(text); $('save-input').value = SaveCodec.encode(save); }
   catch (error) { message(error.message, true); }
 });
-$('reset').addEventListener('click', () => run(() => { save = clone(original); render(); message('Edits reset to the imported save.'); }));
+$('reset').addEventListener('click', () => run(() => { save = clone(original); undoSave = null; render(); message('Edits reset to the imported save.'); }));
 for (const name of sectionNames) $(name + '-tab').addEventListener('click', () => showSection(name));
 for (const name of sectionNames) $(name + '-tab').addEventListener('keydown', event => {
   if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
@@ -214,3 +217,43 @@ $('copy').addEventListener('click', async () => {
 });
 $('download-code').addEventListener('click', () => download($('save-output').value, 'bss-edited-save.txt', 'text/plain;charset=utf-8'));
 $('download-json').addEventListener('click', () => run(() => { ensureReady(); download(pretty(save) + '\n', 'bss-edited-save.json', 'application/json'); }));
+
+function applyPreset(action, text) {
+  ensureReady();
+  const next = action(save);
+  SaveCodec.encode(next);
+  undoSave = clone(save); save = next; render(); message(text + ' You can edit further or generate a code.');
+}
+function describeHive() {
+  const color = $('hive-preset').value;
+  const entries = SavePresets.composition(color);
+  $('hive-build-summary').textContent = entries.slice(0, 3).map(entry => `${entry.count} ${entry.name}`).join(' · ') + ` · ${entries.length} bee types total`;
+  $('hive-composition').replaceChildren();
+  for (const entry of entries) {
+    const chip = document.createElement('span'); chip.textContent = `${entry.count} × ${entry.name}`;
+    $('hive-composition').append(chip);
+  }
+}
+for (const mode of ['headstart', 'endgame', 'everything']) $('preset-' + mode).addEventListener('click', () => run(() => {
+  applyPreset(value => SavePresets.applyProgress(value, mode, $('endgame-color').value), humanize(mode) + ' preset applied.');
+}));
+$('apply-hive-preset').addEventListener('click', () => run(() => {
+  if (!$('preset-level').reportValidity()) return;
+  const color = $('hive-preset').value;
+  applyPreset(value => SavePresets.applyHive(value, color, { level: Number($('preset-level').value), gifted: $('preset-gifted').checked, gear: $('preset-gear').checked }), humanize(color) + ' hive applied: 50 bees.');
+}));
+$('hive-preset').addEventListener('change', describeHive);
+describeHive();
+for (const bee of GameCatalog.bees) $('fill-bee').add(new Option(bee.name, bee.id));
+$('fill-bee').value = 'basic';
+$('resize-hive').addEventListener('click', () => run(() => {
+  if (!$('hive-size').reportValidity()) return;
+  const count = Number($('hive-size').value);
+  applyPreset(value => SavePresets.resizeHive(value, count), 'Hive resized to ' + count + ' slots.');
+}));
+$('max-hive').addEventListener('click', () => run(() => applyPreset(value => SavePresets.resizeHive(value, 50), 'Hive resized to 50 slots.')));
+$('fill-empty').addEventListener('click', () => run(() => applyPreset(value => SavePresets.fillEmpty(value, $('fill-bee').value), 'Empty slots filled.')));
+$('undo-preset').addEventListener('click', () => run(() => {
+  if (!undoSave) return;
+  save = undoSave; undoSave = null; render(); message('Restored the save from before your last preset, resize, or fill.');
+}));

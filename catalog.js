@@ -1,5 +1,5 @@
 /* Game choices extracted from Dddatt/bss. */
-window.GameCatalog = {
+const gameCatalog = {
   "source": "https://github.com/Dddatt/bss",
   "items": [
     {
@@ -888,3 +888,5 @@ window.GameCatalog = {
     ]
   }
 };
+if (typeof module === 'object' && module.exports) module.exports = gameCatalog;
+else window.GameCatalog = gameCatalog;
