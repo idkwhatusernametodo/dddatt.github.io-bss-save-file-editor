@@ -1,0 +1,284 @@
+{
+  "version": "2.0.0",
+  "extraInfo": {
+    "beequipIds": 0,
+    "enablePollenText": true,
+    "drives": {
+      "red": 0,
+      "blue": 0,
+      "white": 0,
+      "glitched": 0
+    },
+    "freeRoboPass": 0,
+    "freeStickbugPass": 0
+  },
+  "honey": 0,
+  "pollen": 0,
+  "hive": [
+    [
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      }
+    ],
+    [
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      }
+    ],
+    [
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      }
+    ],
+    [
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      }
+    ],
+    [
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      },
+      {
+        "type": null,
+        "gifted": true,
+        "bond": 0
+      }
+    ]
+  ],
+  "items": {
+    "basicEgg": 1
+  },
+  "owned": {
+    "pouch": true,
+    "shovel": true
+  },
+  "amountPurchased": {},
+  "currentGear": {
+    "tool": "shovel",
+    "boots": "none",
+    "belt": "none",
+    "backpack": "pouch",
+    "mask": "none",
+    "leftGuard": "none",
+    "rightGuard": "none",
+    "glider": "none",
+    "sprinkler": "none",
+    "beequips": []
+  },
+  "effects": [],
+  "passives": {},
+  "NPCs": {
+    "blackBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "polarBear": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "pandaBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "spiritBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "scienceBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "brownBear": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "datsocool": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "giftedBuckoBee": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "giftedRileyBee": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "honeyBee": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "gummyBear": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "antChallengeSign": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "motherBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "dapperBear": {
+      "index": 0,
+      "index_beesmas": 0
+    },
+    "stickbug": {
+      "index": 0,
+      "index_beesmas": 0,
+      "seed": 0,
+      "portionsDone": 0
+    },
+    "bubbleHbeeMan": {
+      "index": 0,
+      "index_beesmas": 0
+    }
+  },
+  "hotbar": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "quests": [],
+  "TIME": 18,
+  "hiveBalloon": {
+    "pollen": 0,
+    "size": 0,
+    "displaySize": 0,
+    "maxPollen": 0,
+    "blessing": 0,
+    "deflateTimer": 0
+  },
+  "stats": {},
+  "discoveredBees": [],
+  "discoveredGifteds": [],
+  "degration": {},
+  "planters": []
+}
