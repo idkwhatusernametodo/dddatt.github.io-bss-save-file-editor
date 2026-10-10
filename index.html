@@ -2,35 +2,41 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Decode, edit, and export saves for Bee Swarm Simulator Ripoff Edition. All processing stays in your browser.">
-  <title>BSS Save Studio</title>
+  <meta name="description" content="A simple save editor for Bee Swarm Simulator Ripoff Edition. Choose items, gear, and bees from preloaded lists.">
+  <title>BSS Save Editor</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E🐝%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css"><script defer src="codec.js"></script><script defer src="app.js"></script>
+  <link rel="stylesheet" href="styles.css"><script defer src="codec.js"></script><script defer src="catalog.js"></script><script defer src="app.js"></script>
 </head>
 <body>
-  <header><a class="brand" href="./"><span class="brand-icon">⬡</span> BSS <span>Save Studio</span></a><a class="game-link" href="https://dddatt.github.io/bss/" target="_blank" rel="noopener">Open the game ↗</a></header>
   <main>
-    <section class="intro"><div><p class="eyebrow">BEE SWARM SIMULATOR · RIPOFF EDITION</p><h1>Your hive.<br><span>Your possibilities.</span></h1><p class="subtitle">Turn your save code into something you can read, edit, and take back to the game.</p></div><div class="intro-art" aria-hidden="true"><span>⬡</span><b>🐝</b><span>⬡</span></div></section>
-    <div class="privacy"><span class="dot"></span> Browser only. Your save never leaves this device.</div>
-    <ol class="steps"><li><b>01</b> Import your save</li><li><b>02</b> Make your changes</li><li><b>03</b> Export & play</li></ol>
-    <section class="card import-card" aria-labelledby="import-title"><div class="section-title"><div><p class="eyebrow">START HERE</p><h2 id="import-title">Bring in your save</h2></div><span class="badge">No account needed</span></div>
-      <label for="save-input">Save code or JSON</label><textarea id="save-input" rows="4" spellcheck="false" placeholder="Paste the save code you copied from the game…"></textarea>
-      <div class="button-row"><button id="decode" class="primary">Decode save <span>→</span></button><button id="upload">Open a file</button><button id="example" class="text-button">Try an example</button><input id="file-input" type="file" accept=".txt,.json,text/plain,application/json" hidden></div>
-      <p class="hint">In the game, choose Save Game and copy the full code. Keep a copy of your original save.</p>
-    </section>
+    <header><div><h1><span aria-hidden="true">🐝</span> BSS Save Editor</h1><p>Import your save, choose your changes, and export.</p></div><a href="https://dddatt.github.io/bss/" target="_blank" rel="noopener">Open game ↗</a></header>
+    <details id="import-box" class="card" open><summary>Import a save <span>Code or JSON file</span></summary><div class="details-body">
+      <label for="save-input">Save code or JSON</label><textarea id="save-input" rows="3" spellcheck="false" placeholder="Paste your save code here"></textarea>
+      <div class="button-row"><button id="decode" class="primary">Load save</button><button id="upload">Open file</button><button id="example" class="text-button">Try example</button><input id="file-input" type="file" accept=".txt,.json,text/plain,application/json" hidden></div>
+      <p class="hint">Keep a copy of your original save. Everything is processed in your browser.</p>
+    </div></details>
     <p id="status" role="status" aria-live="polite"></p>
     <section id="editor" hidden>
-      <div class="editor-heading"><div><p class="eyebrow">WORKSPACE</p><h2>Edit your save</h2></div><div><span id="version" class="badge"></span><button id="reset" class="text-button">Reset edits</button></div></div>
+      <div class="workspace-heading"><span id="version" class="badge"></span><button id="reset" class="text-button">Reset edits</button></div>
       <div class="summary" id="summary"></div>
-      <div class="tabs" role="tablist" aria-label="Editor mode"><button id="form-tab" role="tab" aria-selected="true" aria-controls="form-panel">Quick editor</button><button id="json-tab" role="tab" aria-selected="false" aria-controls="json-panel" tabindex="-1">Full JSON</button></div>
-      <div id="form-panel" role="tabpanel" aria-labelledby="form-tab">
-        <section class="card"><div class="section-title"><div><p class="eyebrow">THE ESSENTIALS</p><h3>Resources & inventory</h3></div></div><div id="resources" class="field-grid"></div><hr><h4>Items</h4><div id="items" class="field-grid"></div><form id="add-item" class="add-row"><label>Item ID<input id="item-key" placeholder="e.g. royalJelly" required pattern="[A-Za-z][A-Za-z0-9_]*"></label><label>Quantity<input id="item-quantity" type="number" min="0" max="9007199254740991" step="1" value="1" required></label><button>Add item</button></form><p class="hint">Item IDs must match the game. Existing items are listed above.</p></section>
-        <section class="card"><p class="eyebrow">YOUR LOADOUT</p><h3>Equipment</h3><p class="hint">Use exact game IDs. Changing equipped gear also adds it to your owned gear.</p><div id="gear" class="field-grid"></div></section>
-        <section class="card"><div class="section-title"><div><p class="eyebrow">THE COLONY</p><h3>Hive slots</h3></div><span class="badge">Rows match the save</span></div><p class="hint">Leave the bee type blank for an empty slot. Bee types use the game's internal IDs.</p><div id="hive" class="hive-grid"></div></section>
+      <div class="tabs" role="tablist" aria-label="Editor sections">
+        <button id="resources-tab" role="tab" aria-selected="true" aria-controls="resources-panel">Resources</button>
+        <button id="items-tab" role="tab" aria-selected="false" aria-controls="items-panel" tabindex="-1">Items</button>
+        <button id="gear-tab" role="tab" aria-selected="false" aria-controls="gear-panel" tabindex="-1">Equipment</button>
+        <button id="hive-tab" role="tab" aria-selected="false" aria-controls="hive-panel" tabindex="-1">Bees</button>
+        <button id="json-tab" role="tab" aria-selected="false" aria-controls="json-panel" tabindex="-1">Advanced</button>
       </div>
-      <section id="json-panel" class="card" role="tabpanel" aria-labelledby="json-tab" hidden><p class="eyebrow">EVERY DETAIL</p><h3>Full save JSON</h3><p class="hint">Edit quests, NPC progress, stats, gear, and every other saved field here. Apply your JSON to update the quick editor.</p><label for="json-editor" class="sr-only">Full save JSON</label><textarea id="json-editor" rows="24" spellcheck="false"></textarea><div class="button-row"><button id="apply-json" class="primary">Apply JSON</button><span id="json-state" class="hint">No pending JSON changes</span></div></section>
-      <section class="card export-card"><div class="section-title"><div><p class="eyebrow">READY WHEN YOU ARE</p><h3>Take it back to the game</h3></div><span id="export-state" class="badge">Generate a fresh code</span></div><div class="button-row"><button id="generate" class="primary">Generate save code →</button><button id="download-json">Download JSON</button></div><label for="save-output">New save code</label><textarea id="save-output" rows="4" readonly spellcheck="false" placeholder="Your edited save code will appear here."></textarea><div class="button-row"><button id="copy" disabled>Copy code</button><button id="download-code" disabled>Download code</button></div><p class="hint">Open the game’s import option and paste this code to load your edited save.</p></section>
+      <section id="resources-panel" class="card" role="tabpanel" aria-labelledby="resources-tab"><h2>Resources</h2><p class="hint">Change your honey and pollen amounts.</p><div id="resources" class="field-grid"></div></section>
+      <section id="items-panel" class="card" role="tabpanel" aria-labelledby="items-tab" hidden>
+        <h2>Items</h2><p class="hint">Choose any item from the game. No IDs to look up.</p>
+        <form id="add-item" class="add-item"><label for="item-search">Find an item<input id="item-search" type="search" placeholder="Search eggs, jelly, treats…"></label><div class="add-row"><label>Item<select id="item-key" required><option value="">Choose an item</option></select></label><label>Quantity<input id="item-quantity" type="number" min="0" max="9007199254740991" step="1" value="1" required></label><button class="primary">Set quantity</button></div></form>
+        <div class="section-divider"><h3>Your inventory</h3><span id="inventory-count" class="hint"></span></div><div id="items" class="field-grid"></div>
+      </section>
+      <section id="gear-panel" class="card" role="tabpanel" aria-labelledby="gear-tab" hidden><h2>Equipment</h2><p class="hint">Pick your gear. Selected equipment is automatically added to your owned gear.</p><div id="gear" class="field-grid"></div></section>
+      <section id="hive-panel" class="card" role="tabpanel" aria-labelledby="hive-tab" hidden><h2>Bees</h2><p class="hint">Choose a bee for each slot, then adjust its bond or gifted status.</p><div id="hive" class="hive-grid"></div></section>
+      <section id="json-panel" class="card" role="tabpanel" aria-labelledby="json-tab" hidden><h2>Full save JSON</h2><p class="hint">For other settings, quests, and NPC progress. Changes are checked before export.</p><label for="json-editor" class="sr-only">Full save JSON</label><textarea id="json-editor" rows="18" spellcheck="false"></textarea><div class="button-row"><button id="apply-json">Apply JSON</button><span id="json-state" class="hint">No pending changes</span></div></section>
+      <section class="card export-card"><div class="export-heading"><div><h2>Export your save</h2><p class="hint">Generate a code and paste it into the game’s import option.</p></div><button id="generate" class="primary">Generate code</button></div><span id="export-state" class="hint">Your edits are ready to export.</span><div id="output-box" hidden><label for="save-output">New save code</label><textarea id="save-output" rows="3" readonly spellcheck="false"></textarea><div class="button-row"><button id="copy" disabled>Copy code</button><button id="download-code" disabled>Download code</button></div></div><button id="download-json" class="text-button json-download">Download JSON</button></section>
     </section>
-    <footer><p>Made for your next swarm.</p><span>Unofficial editor · <a href="https://github.com/Dddatt/bss" target="_blank" rel="noopener">Game source</a> · <a href="https://github.com/idkwhatusernametodo/dddatt.github.io-bss-save-file-editor" target="_blank" rel="noopener">Editor source</a></span></footer>
+    <footer><span>Unofficial · Your save stays on this device</span><a href="https://github.com/idkwhatusernametodo/dddatt.github.io-bss-save-file-editor" target="_blank" rel="noopener">Source code</a></footer>
   </main>
 </body></html>
