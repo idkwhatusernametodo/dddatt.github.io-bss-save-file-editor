@@ -1,7 +1,7 @@
 'use strict';
 const $ = id => document.getElementById(id);
-let save = null, original = null, jsonDirty = false, undoSave = null;
-const sectionNames = ['presets', 'resources', 'items', 'gear', 'hive', 'json'];
+let save = null, original = null, jsonDirty = false, history = null;
+const sectionNames = ['presets', 'resources', 'items', 'gear', 'hive', 'amulets', 'beequips', 'boosts', 'quests', 'review', 'json'];
 const clone = value => JSON.parse(JSON.stringify(value));
 const pretty = value => JSON.stringify(value, null, 2);
 function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
@@ -12,10 +12,19 @@ function invalidate() {
   $('output-box').hidden = true;
   $('export-state').textContent = 'Your edits are ready to export.';
 }
-function changed() {
+function changed(label = 'Edit save', key = null) {
+  if (history) history.record(save, label, key);
   invalidate();
   $('json-editor').value = pretty(save);
   updateSummary();
+  updateHistoryControls();
+  if (typeof refreshExtras === 'function') refreshExtras();
+}
+function updateHistoryControls() {
+  $('undo-preset').disabled = !history?.canUndo;
+  $('redo-edit').disabled = !history?.canRedo;
+  $('undo-preset').title = history?.canUndo ? 'Undo: ' + history.entries[history.index].label : 'No changes to undo';
+  $('redo-edit').title = history?.canRedo ? 'Redo: ' + history.entries[history.index + 1].label : 'No changes to redo';
 }
 function humanize(key) { return key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()); }
 function choice(parent, title, value, choices, callback, { empty = null } = {}) {
@@ -34,7 +43,7 @@ function choice(parent, title, value, choices, callback, { empty = null } = {}) 
   const current = value ?? '';
   if (current && !choices.some(entry => entry.id === current)) select.add(new Option(humanize(current) + ' (from your save)', current));
   select.value = current;
-  select.addEventListener('change', () => { callback(select.value); changed(); });
+  select.addEventListener('change', () => run(() => { callback(select.value); changed('Change ' + title); }));
   label.append(select); parent.append(label); return select;
 }
 function populateItemChoices() {
@@ -65,12 +74,13 @@ function field(parent, title, value, callback, options = {}) {
   const label = document.createElement('label'); label.textContent = title;
   const input = document.createElement('input');
   input.type = options.type || 'number'; input.value = value ?? '';
-  if (input.type === 'number') { input.min = '0'; input.max = String(Number.MAX_SAFE_INTEGER); input.step = options.step || 'any'; input.required = true; }
+  input.dataset.saveField = 'true';
+  if (input.type === 'number') { input.min = String(options.min ?? 0); input.max = String(options.max ?? Number.MAX_SAFE_INTEGER); input.step = options.step || 'any'; input.required = true; }
   input.addEventListener('input', () => {
     invalidate();
     if (!input.checkValidity()) return;
     callback(input.type === 'number' ? Number(input.value) : input.value);
-    changed();
+    changed('Change ' + title, parent.id + ':' + title + ':' + (typeof selectedSlot !== 'undefined' ? selectedSlot : ''));
   });
   label.append(input); parent.append(label); return input;
 }
@@ -91,7 +101,7 @@ function render() {
   $('json-editor').value = pretty(save); jsonDirty = false;
   $('json-state').textContent = 'No pending changes';
   $('hive-size').value = save.hive.flat().length;
-  $('undo-preset').disabled = !undoSave;
+  updateHistoryControls();
   for (const id of ['resources', 'items', 'gear', 'hive']) $(id).replaceChildren();
   for (const key of ['honey', 'pollen']) {
     if (typeof save[key] === 'number') field($('resources'), humanize(key), save[key], value => { save[key] = value; });
@@ -105,33 +115,16 @@ function render() {
       if (next && next !== 'none') { save.owned ??= {}; save.owned[next] = true; }
     });
   }
-  save.hive.forEach((row, y) => {
-    if (!Array.isArray(row)) throw new Error('Each hive row must be an array.');
-    row.forEach((bee, x) => {
-      if (!bee || typeof bee !== 'object' || Array.isArray(bee)) throw new Error('Each hive slot must be a bee object.');
-      const card = document.createElement('div'); card.className = 'bee-slot';
-      const title = document.createElement('h4'); title.textContent = `ROW ${y + 1} · SLOT ${x + 1}`; card.append(title);
-      const rememberBee = () => {
-        if (!bee.type) return;
-        save.discoveredBees ??= []; save.discoveredGifteds ??= [];
-        if (!save.discoveredBees.includes(bee.type)) save.discoveredBees.push(bee.type);
-        if (bee.gifted && !save.discoveredGifteds.includes(bee.type)) save.discoveredGifteds.push(bee.type);
-      };
-      choice(card, 'Bee type', bee.type, GameCatalog.bees, value => { bee.type = value || null; rememberBee(); }, { empty: 'Empty slot' });
-      field(card, 'Bond', bee.bond ?? 0, value => { bee.bond = value; });
-      const label = document.createElement('label'); label.className = 'checkbox';
-      const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = !!bee.gifted;
-      checkbox.addEventListener('change', () => { bee.gifted = checkbox.checked; rememberBee(); changed(); });
-      label.append(checkbox, 'Gifted'); card.append(label); $('hive').append(card);
-    });
-  });
+  if (typeof renderHive === 'function') renderHive();
   updateSummary(); invalidate();
+  if (typeof renderExtras === 'function') renderExtras();
 }
 function importText(text) {
   const trimmed = text.trim();
   const candidate = trimmed.startsWith('{') ? SaveCodec.validate(JSON.parse(trimmed)) : SaveCodec.decode(trimmed);
   SaveCodec.encode(candidate);
-  save = candidate; original = clone(save); undoSave = null; render();
+  save = candidate; original = clone(save); history = new SaveTools.History(save); render();
+  if (typeof resetSessionViews === 'function') resetSessionViews();
   $('import-box').open = false;
   showSection('resources');
   message('Save loaded. Make your changes, then generate a new code.');
@@ -139,13 +132,13 @@ function importText(text) {
 function applyJSON() {
   const candidate = SaveCodec.validate(JSON.parse($('json-editor').value));
   SaveCodec.encode(candidate);
-  save = candidate; render();
+  save = candidate; history.record(save, 'Apply JSON'); render();
   message('JSON applied. Your quick editor is up to date.');
 }
 function ensureReady() {
   if (!save) throw new Error('Import a save first.');
   if (jsonDirty) applyJSON();
-  for (const input of document.querySelectorAll('#resources input, #items input, #gear input, #hive input')) {
+  for (const input of document.querySelectorAll('[data-save-field]')) {
     if (!input.checkValidity()) {
       const panel = input.closest('[role="tabpanel"]');
       if (panel) showSection(panel.id.replace('-panel', ''));
@@ -167,6 +160,8 @@ function showSection(mode) {
     $(name + '-tab').tabIndex = active ? 0 : -1;
     $(name + '-panel').hidden = !active;
   }
+  if (mode === 'review' && typeof renderReview === 'function') renderReview();
+  if (typeof renderSection === 'function') renderSection(mode);
 }
 $('decode').addEventListener('click', () => run(() => importText($('save-input').value)));
 $('upload').addEventListener('click', () => $('file-input').click());
@@ -180,7 +175,7 @@ $('example').addEventListener('click', async () => {
   try { const response = await fetch('example.json'); if (!response.ok) throw new Error('Could not load the example save.'); const text = await response.text(); importText(text); $('save-input').value = SaveCodec.encode(save); }
   catch (error) { message(error.message, true); }
 });
-$('reset').addEventListener('click', () => run(() => { save = clone(original); undoSave = null; render(); message('Edits reset to the imported save.'); }));
+$('reset').addEventListener('click', () => run(() => { save = clone(original); history.record(save, 'Reset to imported save'); render(); message('Edits reset to the imported save.'); }));
 for (const name of sectionNames) $(name + '-tab').addEventListener('click', () => showSection(name));
 for (const name of sectionNames) $(name + '-tab').addEventListener('keydown', event => {
   if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
@@ -202,7 +197,7 @@ $('add-item').addEventListener('submit', event => {
     if (!Number.isSafeInteger(quantity) || quantity < 0) throw new Error('Use a nonnegative whole quantity.');
     if (Array.isArray(save.items[key])) save.items[key][0] = quantity;
     else save.items[key] = quantity;
-    renderInventory(); changed(); message('Item quantity updated.');
+    renderInventory(); changed('Set ' + humanize(key) + ' quantity'); message('Item quantity updated.');
   });
 });
 $('generate').addEventListener('click', () => run(() => {
@@ -222,7 +217,8 @@ function applyPreset(action, text) {
   ensureReady();
   const next = action(save);
   SaveCodec.encode(next);
-  undoSave = clone(save); save = next; render(); message(text + ' You can edit further or generate a code.');
+  SaveTools.syncBeequips(next); SaveTools.discover(next);
+  save = next; history.record(save, text); render(); message(text.replace(/[.!]$/, '') + '. You can edit further or generate a code.');
 }
 function describeHive() {
   const color = $('hive-preset').value;
@@ -254,6 +250,10 @@ $('resize-hive').addEventListener('click', () => run(() => {
 $('max-hive').addEventListener('click', () => run(() => applyPreset(value => SavePresets.resizeHive(value, 50), 'Hive resized to 50 slots.')));
 $('fill-empty').addEventListener('click', () => run(() => applyPreset(value => SavePresets.fillEmpty(value, $('fill-bee').value), 'Empty slots filled.')));
 $('undo-preset').addEventListener('click', () => run(() => {
-  if (!undoSave) return;
-  save = undoSave; undoSave = null; render(); message('Restored the save from before your last preset, resize, or fill.');
+  if (!history?.canUndo) return;
+  save = history.undo(); render(); message('Undid your last edit.');
+}));
+$('redo-edit').addEventListener('click', () => run(() => {
+  if (!history?.canRedo) return;
+  save = history.redo(); render(); message('Redid your last edit.');
 }));
