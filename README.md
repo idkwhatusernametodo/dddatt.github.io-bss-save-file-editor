@@ -28,7 +28,21 @@ The Bees tab lets you set 25–50 slots, jump straight to 50, and fill empty slo
 - **Review:** before/after values for all changes, searchable by save path, plus comparisons with a second `.txt` or `.json` save without replacing the edited save. Larger comparisons show 100 changes at a time. History is available in the Review tab.
 - **Appearance:** a saved light/dark preference, responsive controls, a compact five-column hive, and horizontally scrollable tabs on narrow screens. Ctrl/Cmd+Z and Ctrl/Cmd+Y (or Shift+Z) undo and redo outside text fields.
 
-All catalogs are bundled: `catalog.js` supplies basic choices and `game-data.js` supplies source metadata and bee images. `features.js` contains pure editing helpers; `extended.js` adds the additional controls. No remote assets or services are needed to edit a save. Browser storage holds only named builds and the theme preference; save history exists only for the current session. Supplementary data was extracted from [Dddatt/bss](https://github.com/Dddatt/bss) (`index.js`, `playerGear.js`, `dialogue.js`, and `textures.js`). Original game names and artwork belong to their creators.
+All catalogs are bundled: `catalog.js` supplies basic choices, `game-data.js` supplies source metadata and bee images, and `item-pictures.js` supplies offline item pictures. `features.js` and `usability-tools.js` contain editing helpers; `extended.js` and `usability.js` provide the controls. No remote assets or services are needed to edit a save. Browser storage holds named builds, theme and mode preferences, walkthrough completion, and the latest draft with its imported original. Undo history exists only for the current session; restoring a draft creates an undo step back to its original. Supplementary data was extracted from [Dddatt/bss](https://github.com/Dddatt/bss) (`index.js`, `playerGear.js`, `dialogue.js`, and `textures.js`). Original game names and artwork belong to their creators.
+
+## Easier editing
+
+- Quick actions offer a headstart, a blue hive, maximum bee levels, and equipment ownership. Each opens a preview before applying.
+- The guided preset builder lets you choose stage, color, 25–50 slots, level, gifted status, and matching equipment. A summary and full before/after list show exactly what changes. Existing preset buttons use the same preview.
+- The item browser has pictures for all 81 choices, searchable names, and categories for eggs/jelly, crafting, boosts, food, and other items. Select a picture, enter a quantity, and press Set quantity. Original atlas pictures are used where available; items with placeholder game textures use simple vector illustrations.
+- In Bees, choose Select several bees to upgrade a subset. Drag one bee onto another to swap their positions. Copy and swap controls under the selected bee also work by keyboard and on touch devices. Copying replaces the destination and does not duplicate a beequip. Swapping updates beequip assignment coordinates; upgrades unequip accessories if their requirements are no longer met.
+- Simple mode shows common sections. Advanced mode reveals amulets, beequips, buffs, quests, raw JSON, bond, and mutation controls. Short explanations describe the main settings.
+- The editor saves a draft after changes and when the page closes. On return, Continue editing restores the latest valid save and its imported original; pending raw JSON text is also recovered for validation. Discard draft removes that stored draft. Drafts stay in the current browser; storage errors are shown beside quick actions.
+- Copy save for the game generates and verifies the code in one step. Download save sits beside it. If clipboard access is unavailable, the editor selects the code for manual copying.
+- Invalid numeric settings show a plain-language explanation and an explicit correction button. Export errors name the field and appear beside the export controls. Valid negative NPC random seeds are accepted and preserved, fixing the previous hidden-field export failure. Bee bond accepts fractional saved values.
+- A three-step walkthrough appears on first use and can be reopened using How to use this editor.
+
+For an existing GitHub Pages site, extract the update ZIP and upload **all files** to the repository root, replacing existing files. The versioned script and stylesheet URLs refresh cached assets. Wait for Pages deployment, then refresh the website.
 
 ## GitHub Pages
 

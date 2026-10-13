@@ -18,6 +18,21 @@ test('amulets serialize source stats, enforce passive limits, and replace only t
   assert.throws(() => tools.amulet(save,'diamondStarAmulet',[],['popStarPassive']));
   assert.deepEqual(codec.decode(codec.encode(next)),next);
 });
+test('editing supported bonuses preserves unfamiliar imported amulet and beequip stats', () => {
+  const source=start();source.currentGear.supremeStarAmulet='*1.2 redPollen,+0.03 beeAbilityRate,P popStarPassive';
+  const parsed=tools.parseStats(source.currentGear.supremeStarAmulet,false,data.playerStats.map(entry=>entry.id));
+  const next=tools.amulet(source,'supremeStarAmulet',[...parsed.filter(entry=>entry.op!=='P'),{op:'*',stat:'capacityMultiplier',value:2}],['popStarPassive']);
+  assert.ok(next.currentGear.supremeStarAmulet.includes('+0.03 beeAbilityRate'));
+  assert.ok(next.currentGear.supremeStarAmulet.includes('*2 capacityMultiplier'));
+  let equipped=tools.beequip(source,null,{type:'pencil'},3);
+  const stats={bee:'*1.2 maxEnergy(+0),*1.1 futureStat(+0.02)',player:''};
+  equipped.currentGear.beequips[0].stats=stats;
+  const meta=data.beequips.find(entry=>entry.id==='pencil');
+  const preserved=tools.serializeStats(tools.parseStats(stats.bee,true,meta.beeStats),true);
+  const updated=tools.beequip(equipped,equipped.currentGear.beequips[0].id,{potential:5,stats:{bee:preserved,player:''}},3);
+  assert.equal(updated.currentGear.beequips[0].stats.bee,stats.bee);
+  assert.deepEqual(codec.decode(codec.encode(updated)),updated);
+});
 test('bulk bee editing preserves individual metadata and changes occupied slots only', () => {
   const save = start(); save.hive[0][0].unknown = {hello:'world'}; save.hive[0][1].type = null;
   const next = tools.bulkBees(save,{level:15,gifted:false,mutation:{stat:'attack',oper:'*',num:1.3}});
@@ -48,6 +63,20 @@ test('resizing and replacing hive unassigns beequips without deleting owned item
   assert.equal(next.currentGear.beequips.length,1); assert.equal(next.currentGear.beequips[0].bee,null);
   const replaced = tools.syncBeequips(presets.applyHive(save,'red'));
   assert.equal(replaced.currentGear.beequips[0].bee,null);
+});
+test('beequip synchronization returns incompatible accessories to inventory after bee changes', () => {
+  let source=tools.beequip(start(),null,{type:'pencil'},3);
+  const item=structuredClone(source.currentGear.beequips[0]);
+  const lowered=tools.bulkBees(source,{level:1});
+  assert.equal(lowered.hive[0][3].beequip,undefined);
+  assert.deepEqual(lowered.currentGear.beequips[0],{...item,bee:null});
+  source.hive[0][3].type='spicy';tools.syncBeequips(source);
+  assert.equal(source.hive[0][3].beequip,undefined);assert.equal(source.currentGear.beequips[0].bee,null);
+  let gifted=presets.applyProgress(example,'endgame','white');
+  gifted=tools.beequip(gifted,null,{type:'coffeeMug'},12);
+  const ungifted=tools.bulkBees(gifted,{gifted:false});
+  assert.equal(ungifted.hive[2][2].beequip,undefined);assert.equal(ungifted.currentGear.beequips[0].bee,null);
+  assert.deepEqual(codec.decode(codec.encode(ungifted)),ungifted);
 });
 test('drives enforce the actual cap, recompute maxed, and preserve extra info', () => {
   const save = start(); save.extraInfo.custom = 'keep';

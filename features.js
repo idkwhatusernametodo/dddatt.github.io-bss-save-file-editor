@@ -37,7 +37,7 @@
         else bee.mutation = clone(options.mutation);
       }
     }
-    discover(next); return next;
+    discover(next); syncBeequips(next); return next;
   }
   function hiveStats(save) {
     const bees = save.hive.flat().filter(bee => bee.type);
@@ -57,6 +57,8 @@
       if (!bee.beequip) return;
       const item = byId.get(bee.beequip.id);
       if (!bee.type || !item || assigned.has(item.id)) { delete bee.beequip; return; }
+      const meta = data.beequips.find(entry => entry.id === item.type);
+      if (meta && (level(bee) < meta.level || (meta.gifted && !bee.gifted) || (!['any','all'].includes(meta.color) && meta.color !== data.bees[bee.type]?.color) || (meta.types?.length && !meta.types.includes(bee.type)))) { delete bee.beequip; return; }
       item.bee = [x, y]; assigned.add(item.id); bee.beequip = clone(item);
     }));
     for (const item of equipment) if (!assigned.has(item.id)) item.bee = null;
@@ -95,11 +97,12 @@
     next.hiveBalloon = { ...next.hiveBalloon, pollen, blessing, maxPollen: Math.max(pollen, maxPollen), size, displaySize: size, deflateTimer: 10 };
     return next;
   }
-  function parseStats(text, beequip = false) {
+  function parseStats(text, beequip = false, supported = null) {
     if (!text) return [];
+    const allowed = supported ? new Set(supported) : null;
     return text.split(',').filter(Boolean).map(raw => {
       const m = raw.trim().match(/^([+*])(-?\d+(?:\.\d+)?)\s+(\w+)(?:\(([+-]?\d+(?:\.\d+)?)\))?$/);
-      if (m) return { op: m[1], value: Number(m[2]), stat: m[3], wax: Number(m[4] || 0) };
+      if (m) return allowed && !allowed.has(m[3]) ? {raw} : { op: m[1], value: Number(m[2]), stat: m[3], wax: Number(m[4] || 0) };
       const p = raw.trim().match(/^P\s+(\w+)$/);
       return p ? { op: 'P', stat: p[1] } : { raw };
     });
@@ -243,7 +246,11 @@
     if (changes.stats) {
       for (const kind of ['bee','player']) {
         const allowed = new Set(meta[kind === 'bee' ? 'beeStats' : 'playerStats']);
-        for (const stat of parseStats(changes.stats[kind], true)) if (!stat.raw && !allowed.has(stat.stat)) throw new Error('This bonus is not supported by this beequip.');
+        const original = new Set((item.stats[kind] || '').split(',').filter(Boolean));
+        for (const raw of (changes.stats[kind] || '').split(',').filter(Boolean)) {
+          const stat = parseStats(raw,true)[0];
+          if (!stat.raw && !allowed.has(stat.stat) && !original.has(raw)) throw new Error('This bonus is not supported by this beequip.');
+        }
       }
       item.stats = clone(changes.stats);
     }

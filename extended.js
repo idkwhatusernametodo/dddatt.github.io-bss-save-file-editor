@@ -26,11 +26,12 @@ function selectControl(parent, title, value, entries, onChange, empty = null) {
 function draftNumber(parent, title, value, callback, min = 0, max = Number.MAX_SAFE_INTEGER, step = 'any') {
   const label = el('label', title), input = el('input');
   input.type = 'number'; input.min = String(min); input.max = String(max); input.step = step; input.required = true; input.value = value;
+  input.setAttribute('aria-label', title);
   input.addEventListener('input', () => { if (input.checkValidity()) callback(Number(input.value)); });
   label.append(input); parent.append(label); return input;
 }
 function validWithin(id) {
-  for (const input of $(id).querySelectorAll('input,select')) if (!input.checkValidity()) { input.reportValidity(); throw new Error('Fix the highlighted field before applying.'); }
+  for (const input of $(id).querySelectorAll('input,select')) if (!input.checkValidity()) { if (typeof revealInvalid === 'function') revealInvalid(input); input.reportValidity(); throw new Error('Fix the highlighted field before applying: ' + input.validationMessage); }
 }
 function commitSave(next, label) { applyPreset(() => next, label); }
 function statsName(id) { return GameData.playerStats.find(entry => entry.id === id)?.name || humanize(id); }
@@ -58,6 +59,8 @@ function resetSessionViews() {
 }
 function refreshExtras() {
   if (!$('hive-panel').hidden) { renderHiveOverview(); renderHiveStats(); }
+  const beequipHint = $('selected-beequip-state');
+  if (beequipHint) { const item = save.hive.flat()[selectedSlot]?.beequip; beequipHint.hidden = !item; beequipHint.textContent = item ? 'Beequip: ' + humanize(item.type) + ' (edit in Beequips)' : ''; }
   if (!$('review-panel').hidden) renderReview();
   if (!$('gear-panel').hidden) updateGearComparison();
 }
@@ -107,6 +110,7 @@ function renderHiveOverview() {
     tile.addEventListener('click', () => { selectedSlot = index; renderHiveOverview(); renderBeeDetail(); });
     $('hive').append(tile);
   });
+  if (typeof enhanceHive === 'function') enhanceHive();
 }
 function renderHive() {
   selectedSlot = Math.min(selectedSlot, Math.max(save.hive.flat().length - 1, 0));
@@ -124,7 +128,7 @@ function renderBeeDetail() {
     SaveTools.discover(save); changed('Change bee in slot ' + (selectedSlot + 1)); renderHive(); renderBeequips();
   }, 'Empty slot');
   const levelInput = field(fields, 'Level', SaveTools.level(bee), value => { bee.bond = SavePresets.levelBond(value); bondInput.value = bee.bond; }, { min: 1, max: 20, step: '1' });
-  const bondInput = field(fields, 'Bond', bee.bond || 0, value => { bee.bond = value; levelInput.value = SaveTools.level(bee); }, { step: '1' });
+  const bondInput = field(fields, 'Bond', bee.bond || 0, value => { bee.bond = value; levelInput.value = SaveTools.level(bee); }, { step: 'any' });
   const giftedLabel = el('label','', 'checkbox'); const gifted = el('input'); gifted.type = 'checkbox'; gifted.checked = !!bee.gifted;
   gifted.addEventListener('change', () => { bee.gifted = gifted.checked; SaveTools.discover(save); changed('Change gifted status of slot ' + (selectedSlot + 1)); });
   giftedLabel.append(gifted, 'Gifted'); fields.append(giftedLabel);
@@ -135,8 +139,8 @@ function renderBeeDetail() {
     changed('Change mutation in slot ' + (selectedSlot + 1)); renderBeeDetail();
   }, 'No mutation');
   if (bee.mutation) {
-    selectControl(mutation, 'Operation', bee.mutation.oper, [{id:'*',name:'Multiply (×)'},{id:'+',name:'Add (+)'}], value => { bee.mutation.oper = value; changed('Change mutation operation'); });
-    field(mutation, 'Mutation value', bee.mutation.num, value => { bee.mutation.num = value; }, { min: 0, step: 'any' });
+    selectControl(mutation, 'Operation', bee.mutation.oper, [{id:'*',name:'Multiply (×)'},{id:'+',name:'Add (+)'}], value => { bee.mutation.oper = value; mutationInput.min = value === '*' ? '0.01' : '0'; changed('Change mutation operation'); });
+    const mutationInput = field(mutation, 'Mutation value', bee.mutation.num, value => { bee.mutation.num = value; }, { min: bee.mutation.oper === '*' ? 0.01 : 0, step: 'any' });
   }
   const info = GameData.bees[bee.type];
   if (info) {
@@ -144,7 +148,8 @@ function renderBeeDetail() {
     const text = bonus ? ` Gifted hive bonus: ${bonus.oper === '*' ? '×' : '+'}${bonus.num} ${bonus.stat.split(',').map(statsName).join(', ')}.` : '';
     $('bee-detail').append(el('p', `${humanize(info.color)} · ${info.group}.${text}`, 'hint'));
   }
-  if (bee.beequip) $('bee-detail').append(el('p', 'Beequip: ' + humanize(bee.beequip.type) + ' (edit in Beequips)', 'hint'));
+  const beequipHint = el('p', bee.beequip ? 'Beequip: ' + humanize(bee.beequip.type) + ' (edit in Beequips)' : '', 'hint'); beequipHint.id = 'selected-beequip-state'; beequipHint.hidden = !bee.beequip; $('bee-detail').append(beequipHint);
+  if (typeof enhanceBeeDetail === 'function') enhanceBeeDetail();
 }
 function renderStatRows(parent, entries, supported, beequip = false) {
   parent.replaceChildren();
@@ -154,8 +159,8 @@ function renderStatRows(parent, entries, supported, beequip = false) {
       row.append(el('p', 'Preserved bonus: ' + entry.raw, 'hint'));
     } else {
       selectControl(row, 'Bonus', entry.stat, supported, value => { entry.stat = value; });
-      selectControl(row, 'Operation', entry.op, [{id:'*',name:'Multiply (×)'},{id:'+',name:'Add (+)'}], value => { entry.op = value; });
-      draftNumber(row, 'Value', entry.value, value => { entry.value = value; }, 0, Number.MAX_SAFE_INTEGER);
+      selectControl(row, 'Operation', entry.op, [{id:'*',name:'Multiply (×)'},{id:'+',name:'Add (+)'}], value => { entry.op = value; valueInput.min = value === '*' ? '0.01' : '0'; });
+      const valueInput = draftNumber(row, 'Value', entry.value, value => { entry.value = value; }, entry.op === '*' ? 0.01 : 0, Number.MAX_SAFE_INTEGER);
       if (beequip) draftNumber(row, 'Wax bonus', entry.wax || 0, value => { entry.wax = value; }, -Number.MAX_SAFE_INTEGER);
     }
     button(row, 'Remove', () => { entries.splice(index, 1); renderStatRows(parent, entries, supported, beequip); });
@@ -165,7 +170,7 @@ function renderStatRows(parent, entries, supported, beequip = false) {
 function renderAmulet() {
   $('amulet-controls').replaceChildren();
   selectControl($('amulet-controls'), 'Amulet', selectedAmulet, GameData.amuletSlots, value => { selectedAmulet = value; renderAmulet(); });
-  const entries = SaveTools.parseStats(save.currentGear[selectedAmulet]);
+  const entries = SaveTools.parseStats(save.currentGear[selectedAmulet], false, GameData.playerStats.map(entry => entry.id));
   amuletDraft = entries.filter(entry => entry.op !== 'P'); amuletPassiveDraft = entries.filter(entry => entry.op === 'P').map(entry => entry.stat);
   renderStatRows($('amulet-bonuses'), amuletDraft, GameData.playerStats);
   $('amulet-passives').replaceChildren();
@@ -201,7 +206,7 @@ function renderBeequipEditor() {
   if (!meta) { parent.append(el('p', 'Unknown beequip preserved. Edit its extra values in Advanced.', 'hint')); return; }
   parent.append(el('h3', meta.name));
   parent.append(el('p', `Minimum level ${meta.level} · ${humanize(meta.color)} bees${meta.gifted ? ' · gifted only' : ''}${meta.reqStr ? ' · ' + meta.reqStr.replace(/<[^>]+>/g,'') : ''}`, 'hint'));
-  beequipDraft = { potential: item.potential || 1, bee: SaveTools.parseStats(item.stats.bee, true), player: SaveTools.parseStats(item.stats.player, true), slot: item.bee ? item.bee[1] * 5 + item.bee[0] : null };
+  beequipDraft = { potential: item.potential || 1, bee: SaveTools.parseStats(item.stats.bee, true, meta.beeStats), player: SaveTools.parseStats(item.stats.player, true, meta.playerStats), slot: item.bee ? item.bee[1] * 5 + item.bee[0] : null };
   const fields = el('div','', 'field-grid two'); parent.append(fields);
   const slots = save.hive.flat().map((bee,index) => ({ id: String(index), name: `Slot ${index + 1} · ${beeName(bee.type)}${compatibleBeequip(item.type,bee) ? '' : ' (incompatible)'}`, allowed: compatibleBeequip(item.type,bee) }));
   const select = selectControl(fields, 'Assigned bee', beequipDraft.slot === null ? '' : String(beequipDraft.slot), slots, value => { beequipDraft.slot = value === '' ? null : Number(value); }, 'Unequipped');
@@ -262,7 +267,7 @@ function renderQuests() {
   $('npc-progress').replaceChildren();
   for (const [id, npc] of Object.entries(save.NPCs)) {
     const group = el('article','', 'sub-card'); group.append(el('h3',humanize(id))); const fields = el('div','', 'field-grid'); fields.id = 'npc-' + id; group.append(fields);
-    for (const key of ['index','index_beesmas','portionsDone','seed']) if (typeof npc[key] === 'number') field(fields,humanize(key),npc[key],value => { save.NPCs[id][key] = value; }, { step:'1' });
+    for (const key of ['index','index_beesmas','portionsDone','seed']) if (typeof npc[key] === 'number') field(fields,humanize(key),npc[key],value => { save.NPCs[id][key] = value; }, { min: key === 'seed' ? -Number.MAX_SAFE_INTEGER : 0, step:'1' });
     if (typeof npc.translatored === 'boolean') {
       const label = el('label','', 'checkbox'), box = el('input'); box.type = 'checkbox'; box.checked = npc.translatored; box.addEventListener('change', () => { save.NPCs[id].translatored = box.checked; changed('Change translator for ' + humanize(id)); }); label.append(box,'Translator'); fields.append(label);
     }
@@ -341,13 +346,22 @@ $('inventory-shortcut').addEventListener('click', () => run(() => { validWithin(
 $('inventory-max').addEventListener('click', () => run(() => commitSave(SaveTools.inventory(save,'materials',1000000),'Max crafting materials')));
 $('apply-custom').addEventListener('click', () => run(() => { validWithin('presets-panel'); const resources = $('custom-topup').checked; commitSave(SaveTools.customize(save,{color:$('custom-color').value,count:Number($('custom-count').value),level:Number($('custom-level').value),gifted:$('custom-gifted').checked,gear:$('custom-gear').checked,honey:resources ? Number($('custom-honey').value) : null,supplies:resources ? Number($('custom-supplies').value) : null}),'Apply customized preset'); }));
 $('apply-bulk').addEventListener('click', () => run(() => {
-  validWithin('hive-panel'); const options = {};
+  validWithin('bulk-bee-controls'); const options = {};
   if ($('bulk-set-level').checked) options.level = Number($('bulk-level').value);
   if ($('bulk-gifted').value !== 'keep') options.gifted = $('bulk-gifted').value === 'yes';
   const mutation = $('bulk-mutation').value;
   if (mutation !== 'keep') options.mutation = mutation === 'none' ? null : {stat:mutation,oper:$('bulk-op').value,num:Number($('bulk-value').value)};
   commitSave(SaveTools.bulkBees(save,options),'Upgrade occupied bees');
 }));
+$('bulk-level').closest('.field-grid').id = 'bulk-bee-controls';
+function updateBulkControls() {
+  $('bulk-level').disabled = !$('bulk-set-level').checked;
+  const mutation = $('bulk-mutation').value;
+  $('bulk-op').disabled = $('bulk-value').disabled = mutation === 'keep' || mutation === 'none';
+  $('bulk-value').min = $('bulk-op').value === '*' ? '0.01' : '0';
+}
+for (const id of ['bulk-set-level','bulk-mutation','bulk-op']) $(id).addEventListener('change', updateBulkControls);
+updateBulkControls();
 $('add-amulet-bonus').addEventListener('click', () => { amuletDraft.push({op:'*',stat:'capacityMultiplier',value:1.5}); renderStatRows($('amulet-bonuses'),amuletDraft,GameData.playerStats); });
 $('apply-amulet').addEventListener('click', () => run(() => { validWithin('amulets-panel'); commitSave(SaveTools.amulet(save,selectedAmulet,amuletDraft,amuletPassiveDraft),'Apply ' + humanize(selectedAmulet)); }));
 $('remove-amulet').addEventListener('click', () => run(() => { const next = clone(save); delete next.currentGear[selectedAmulet]; commitSave(next,'Remove ' + humanize(selectedAmulet)); }));

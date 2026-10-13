@@ -4,7 +4,10 @@ let save = null, original = null, jsonDirty = false, history = null;
 const sectionNames = ['presets', 'resources', 'items', 'gear', 'hive', 'amulets', 'beequips', 'boosts', 'quests', 'review', 'json'];
 const clone = value => JSON.parse(JSON.stringify(value));
 const pretty = value => JSON.stringify(value, null, 2);
-function message(text, error = false) { $('status').textContent = text; $('status').classList.toggle('error', error); }
+function message(text, error = false) {
+  $('status').textContent = text; $('status').classList.toggle('error', error);
+  if ($('finish-notice')) { $('finish-notice').textContent = text; $('finish-notice').classList.toggle('error', error); }
+}
 function run(action) { try { action(); } catch (error) { message(error.message, true); } }
 function invalidate() {
   $('save-output').value = '';
@@ -13,12 +16,14 @@ function invalidate() {
   $('export-state').textContent = 'Your edits are ready to export.';
 }
 function changed(label = 'Edit save', key = null) {
+  SaveTools.syncBeequips(save); SaveTools.discover(save);
   if (history) history.record(save, label, key);
   invalidate();
   $('json-editor').value = pretty(save);
   updateSummary();
   updateHistoryControls();
   if (typeof refreshExtras === 'function') refreshExtras();
+  document.dispatchEvent(new CustomEvent('editor-state', { detail: 'edit' }));
 }
 function updateHistoryControls() {
   $('undo-preset').disabled = !history?.canUndo;
@@ -74,6 +79,7 @@ function field(parent, title, value, callback, options = {}) {
   const label = document.createElement('label'); label.textContent = title;
   const input = document.createElement('input');
   input.type = options.type || 'number'; input.value = value ?? '';
+  input.setAttribute('aria-label', title);
   input.dataset.saveField = 'true';
   if (input.type === 'number') { input.min = String(options.min ?? 0); input.max = String(options.max ?? Number.MAX_SAFE_INTEGER); input.step = options.step || 'any'; input.required = true; }
   input.addEventListener('input', () => {
@@ -118,6 +124,7 @@ function render() {
   if (typeof renderHive === 'function') renderHive();
   updateSummary(); invalidate();
   if (typeof renderExtras === 'function') renderExtras();
+  document.dispatchEvent(new CustomEvent('editor-state', { detail: 'render' }));
 }
 function importText(text) {
   const trimmed = text.trim();
@@ -128,6 +135,7 @@ function importText(text) {
   $('import-box').open = false;
   showSection('resources');
   message('Save loaded. Make your changes, then generate a new code.');
+  document.dispatchEvent(new CustomEvent('editor-state', { detail: 'import' }));
 }
 function applyJSON() {
   const candidate = SaveCodec.validate(JSON.parse($('json-editor').value));
@@ -141,9 +149,11 @@ function ensureReady() {
   for (const input of document.querySelectorAll('[data-save-field]')) {
     if (!input.checkValidity()) {
       const panel = input.closest('[role="tabpanel"]');
-      if (panel) showSection(panel.id.replace('-panel', ''));
+      if (panel) showSection(panel.id.replace('-panel', ''), false);
+      if (typeof revealInvalid === 'function') revealInvalid(input);
       input.reportValidity();
-      throw new Error('Fix the highlighted field before exporting.');
+      const label = [...input.parentElement.childNodes].filter(node => node.nodeType === 3).map(node => node.textContent).join('').trim() || 'This field';
+      throw new Error(label + ': ' + input.validationMessage);
     }
   }
 }
@@ -152,8 +162,8 @@ function download(text, filename, type) {
   const link = document.createElement('a'); link.href = url; link.download = filename; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-function showSection(mode) {
-  if (mode !== 'json' && jsonDirty) { try { applyJSON(); } catch (error) { message(error.message, true); return; } }
+function showSection(mode, refresh = true) {
+  if (mode !== 'json' && jsonDirty) { try { applyJSON(); } catch (error) { message(error.message, true); return false; } }
   for (const name of sectionNames) {
     const active = mode === name;
     $(name + '-tab').setAttribute('aria-selected', String(active));
@@ -161,7 +171,9 @@ function showSection(mode) {
     $(name + '-panel').hidden = !active;
   }
   if (mode === 'review' && typeof renderReview === 'function') renderReview();
-  if (typeof renderSection === 'function') renderSection(mode);
+  if (refresh && typeof renderSection === 'function') renderSection(mode);
+  document.dispatchEvent(new CustomEvent('editor-section', { detail: mode }));
+  return true;
 }
 $('decode').addEventListener('click', () => run(() => importText($('save-input').value)));
 $('upload').addEventListener('click', () => $('file-input').click());
@@ -185,7 +197,7 @@ for (const name of sectionNames) $(name + '-tab').addEventListener('keydown', ev
     showSection(next); if ($(next + '-tab').getAttribute('aria-selected') === 'true') $(next + '-tab').focus();
   }
 });
-$('json-editor').addEventListener('input', () => { jsonDirty = true; invalidate(); $('json-state').textContent = 'Changes pending — apply or export to validate'; });
+$('json-editor').addEventListener('input', () => { jsonDirty = true; invalidate(); $('json-state').textContent = 'Changes pending — apply or export to validate'; document.dispatchEvent(new CustomEvent('editor-state', { detail: 'json' })); });
 $('apply-json').addEventListener('click', () => run(applyJSON));
 $('item-search').addEventListener('input', populateItemChoices);
 populateItemChoices();
@@ -216,8 +228,8 @@ $('download-json').addEventListener('click', () => run(() => { ensureReady(); do
 function applyPreset(action, text) {
   ensureReady();
   const next = action(save);
-  SaveCodec.encode(next);
   SaveTools.syncBeequips(next); SaveTools.discover(next);
+  SaveCodec.encode(next);
   save = next; history.record(save, text); render(); message(text.replace(/[.!]$/, '') + '. You can edit further or generate a code.');
 }
 function describeHive() {
